@@ -47,15 +47,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
     )
     .context("Cannot sniff from default device")?
     .immediate_mode(true)
-    .snaplen(3 * led_number as i32) // could be a little short
+    .snaplen(3 * led_number as i32) // restrict the size of captured packet data
     .open()
     .context("Capture activation failed (if you got an 'Operation not permitted' error from libpcap on Linux, run: 'sudo setcap cap_net_raw,cap_net_admin=eip EXECUTABLE')")?;
-
-    // TODO: remove this
-    assert_eq!(
-        cap.next_packet().unwrap().header.caplen,
-        led_number as u32 * 3,
-    );
 
     while let Ok(packet) = cap.next_packet() {
         // high-perf-only zone
