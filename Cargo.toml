@@ -10,3 +10,4 @@ openrgb = "0.1.2"
 tokio = { version = "1", features = ["full"] }
 rgb = "0.8.36"
 pcap = "1.0.0"
+anyhow = "1.0"
