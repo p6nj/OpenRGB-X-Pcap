@@ -58,22 +58,32 @@ async fn main() -> Result<(), Box<dyn Error>> {
     .open()
     .context("Capture activation failed (if you got an 'Operation not permitted' error from libpcap on Linux, run: 'sudo setcap cap_net_raw,cap_net_admin=eip EXECUTABLE')")?;
 
+    let mut copy = vec![[0u8; 3]; led_number];
     while let Ok(packet) = cap.next_packet() {
         // high-perf-only zone
-        let mut data = Vec::from(packet.data);
-        data.fill(0);
-        for i in 0..led_number {
+        let mut data = vec![[0u8; 3]; led_number];
+        packet
+            .data
+            .iter()
+            .enumerate()
+            .for_each(|(i, x)| data[i / 3][i % 3] = *x);
+        if copy == data {
+            continue;
+        }
+        copy = data; // move
+        for (i, x) in copy.iter().enumerate() {
             client
                 .update_led(
                     0,
-                    i.try_into().unwrap(),
+                    i as i32,
                     RGB {
-                        r: packet.data[i],
-                        g: packet.data[i * 3 + 1],
-                        b: packet.data[i * 3 + 2],
+                        r: x[0],
+                        g: x[1],
+                        b: x[2],
                     },
                 )
-                .await?;
+                .await
+                .context("Error updating LEDs")?;
         }
     }
 
