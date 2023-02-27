@@ -7,13 +7,6 @@ use rgb::RGB;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    if cfg!(target_os = "windows") {
-        let mut res = winres::WindowsResource::new();
-        res.set_icon("ico/keyboard icon.ico");
-        res.compile()
-            .context("Icon not found, should be in 'ico/keyboard icon.ico'")?;
-    }
-
     let client = OpenRGB::connect().await.context(
         "Couldn't connect to OpenRGB. Is the server running and listening on port 6742?",
     )?;

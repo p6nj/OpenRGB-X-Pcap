@@ -5,6 +5,3 @@ Try it on Linux using the script `auto-setup.sh`.
 # How to use
 You need OpenRGB running and its server listening on default port. Don't worry if something's not right, the errors are very descriptive.  
 Runs on Linux (tested on Lubuntu) for now, compiled with the `libpcap` package installed with `apt`.
-# TODO
-- ~~Performance improvement using temporary matrix~~
-- Windows compatibility testing
