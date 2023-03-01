@@ -4,4 +4,4 @@ Note that the Python version was based on IPv4 addresses and this one uses only 
 Try it on Linux using the script `auto-setup.sh`.
 # How to use
 You need OpenRGB running and its server listening on default port. Don't worry if something's not right, the errors are very descriptive.  
-Runs on Linux (tested on Lubuntu) for now, compiled with the `libpcap` package installed with `apt`.
+Runs on Linux (tested on Lubuntu), compiled with the `libpcap` package installed with `apt`, and on Windows with `Npcap` installed (but only two DLLs should be really required, check the latest release).
