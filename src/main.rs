@@ -1,12 +1,51 @@
-use std::{env::args, error::Error};
+use std::{env::args, error::Error, io::Write};
 
 use anyhow::{Context, Result};
 use openrgb::OpenRGB;
-use pcap::{Capture, Device};
+use pcap::{Capture, Device, Inactive};
 use rgb::RGB;
+use std::io::{stdin, stdout};
+
+fn dev_picker() -> Result<Device> {
+    let mut line = String::new();
+    let list = Device::list().context("Can't enumerate devices")?;
+    for (i, dev) in list.iter().enumerate() {
+        println!(
+            "{}. {}",
+            i,
+            dev.desc.as_ref().or_else(|| Some(&dev.name)).unwrap()
+        );
+    }
+    print!("Choose a device: ");
+    stdout().flush().unwrap();
+    stdin()
+        .read_line(&mut line)
+        .expect("Error: Could not read a line");
+    Ok(
+        match list.get(
+            line.trim()
+                .parse::<usize>()
+                .context("Choice isn't an integer")?,
+        ) {
+            Some(d) => d.clone(),
+            _ => unreachable!(),
+        },
+    )
+}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
+    let cap: Result<Capture<Inactive>, pcap::Error>;
+    if cfg!(target_os = "windows") {
+        cap = Capture::from_device(dev_picker()?);
+    } else {
+        cap = Capture::from_device(
+            Device::lookup()
+                .context("Device lookup failed")?
+                .context("No device available")?,
+        );
+    }
+
     let client = OpenRGB::connect().await.context(
         "Couldn't connect to OpenRGB. Is the server running and listening on port 6742?",
     )?;
@@ -40,11 +79,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .leds
         .len();
 
-    let mut cap = Capture::from_device(
-        Device::lookup()
-            .context("Device lookup failed")?
-            .context("No device available")?,
-    )
+    // dbg!(Device::list());
+
+    let mut cap = cap
     .context("Cannot sniff from default device")?
     .immediate_mode(true)
     .snaplen(3 * led_number as i32) // restrict the size of captured packet data
@@ -52,31 +89,34 @@ async fn main() -> Result<(), Box<dyn Error>> {
     .context("Capture activation failed (if you got an 'Operation not permitted' error from libpcap on Linux, run: 'sudo setcap cap_net_raw,cap_net_admin=eip EXECUTABLE')")?;
 
     let mut copy = vec![[0u8; 3]; led_number];
-    while let Ok(packet) = cap.next_packet() {
-        // high-perf-only zone
-        let mut data = vec![[0u8; 3]; led_number];
-        packet
-            .data
-            .iter()
-            .enumerate()
-            .for_each(|(i, x)| data[i / 3][i % 3] = *x);
-        if copy == data {
-            continue;
-        }
-        copy = data; // move
-        for (i, x) in copy.iter().enumerate() {
-            client
-                .update_led(
-                    0,
-                    i as i32,
-                    RGB {
-                        r: x[0],
-                        g: x[1],
-                        b: x[2],
-                    },
-                )
-                .await
-                .context("Error updating LEDs")?;
+    let tries = 3u8;
+    for _ in 0..tries {
+        while let Ok(packet) = cap.next_packet() {
+            // high-perf-only zone
+            let mut data = vec![[0u8; 3]; led_number];
+            packet
+                .data
+                .iter()
+                .enumerate()
+                .for_each(|(i, x)| data[i / 3][i % 3] = *x);
+            if copy == data {
+                continue;
+            }
+            copy = data; // move
+            for (i, x) in copy.iter().enumerate() {
+                client
+                    .update_led(
+                        0,
+                        i as i32,
+                        RGB {
+                            r: x[0],
+                            g: x[1],
+                            b: x[2],
+                        },
+                    )
+                    .await
+                    .context("Error updating LEDs")?;
+            }
         }
     }
 
